@@ -1,4 +1,9 @@
 class Node(object):
+    """
+    A single node of a tree.
+
+    Perhaps the label property is unneeded.
+    """
 
     def __init__(self, parent=None, children=None, label=None):
         self.parent = parent
@@ -13,6 +18,9 @@ class Node(object):
 
 
 def generate_child_nodes(ls, parent, counter):
+    """
+    Used recursively to generate the nodal representation of a tree.
+    """
     for child in ls:
         counter += 1
         cn = Node(parent=parent, label=counter)
@@ -26,6 +34,8 @@ def generate_nested_list(root,nodes):
     Generates a nested list representation of the tree
     with specified node as root.  Useful for checking
     equality of trees or subtrees.
+
+    To do: make the nested list form a property that is computed when needed.
     """
     nl = []
     if root.children is None: return nl
@@ -34,7 +44,10 @@ def generate_nested_list(root,nodes):
     return nl
 
 def make_nodelist(root):
-
+    """
+    Recursively finds all the nodes that are descendants of root and returns
+    them as a list.
+    """
     nodelist = [root]
     if root.children is not None:
         for child in root.children:
@@ -42,10 +55,18 @@ def make_nodelist(root):
     return nodelist
 
 class RootedTree(object):
-    """
+    r"""
     Represents a rooted tree.  Maintains two equivalent representations,
     one as a nested list and the other as a set of Nodes each with a
     parent and zero or more children.
+
+    Can be initialized in three ways:
+
+        1. From a nest list.
+        2. From a set of Nodes.
+        3. From a level sequence.
+
+    To do: add examples.
     """
 
     def __init__(self,initializer):
@@ -55,6 +76,7 @@ class RootedTree(object):
             self._nl = []
             self.root = Node(children=None,label=0)
             self.nodes = make_nodelist(self.root)
+
         elif initializer[0] == 0:
             # Initialize from level sequence
             assert(min(initializer)>=0)
@@ -73,7 +95,6 @@ class RootedTree(object):
             if self.root.children:
                 for child in self.root.children:
                     self._nl.append(generate_nested_list(child,self.nodes))
-                
 
         elif type(initializer[0]) is Node:
             # Initialize from nodelist
@@ -99,6 +120,9 @@ class RootedTree(object):
 
             self.nodes = make_nodelist(self.root)
 
+    def subtrees(self):
+        return [RootedTree(nl) for nl in self._nl]
+
     def __len__(self):
         return len(self.nodes)
 
@@ -106,16 +130,37 @@ class RootedTree(object):
         return len(self.nodes)
 
     def density(self):
-        "$gamma(t)$"
+        r"""
+        The density of a rooted tree, denoted by $\\gamma(t)$,
+        is the product of the orders of the subtrees.
+
+        Examples::
+
+            >>> from BSeries import trees
+            >>> t = trees.RootedTree([[],[],[[],[[]]]])
+            >>> t.density()
+            56
+
+        **Reference**: :cite:`butcher2003` p. 127, eq. 301(c)
+        """
         gamma = len(self)
         for tree in self.subtrees():
             gamma *= tree.density()
         return gamma
 
-    def subtrees(self):
-        return [RootedTree(nl) for nl in self._nl]
-
     def symmetry(self):
+        r"""
+        The symmetry $\\sigma(t)$ of a rooted tree is...
+
+        **Examples**::
+
+            >>> from BSeries import trees
+            >>> t = t.RootedTree([[],[],[[],[[]]]])
+            >>> tree.symmetry()
+            2
+
+        **Reference**: :cite:`butcher2003` p. 127, eq. 301(b)
+        """
         from sympy import factorial
         sigma = 1
         unique_subtrees = []
@@ -128,8 +173,7 @@ class RootedTree(object):
         return sigma
 
     def __eq__(self, tree2):
-        pass # Need to write this function
-
+        return self._nl == tree2._nl
 
     def plot(self):
         import matplotlib.pyplot as plt
@@ -142,10 +186,16 @@ class RootedTree(object):
     def plot_labeled(self):
         plot_labeled_tree(self.nodes)
 
+    def all_labelings(self):
+        return generate_all_labelings(self.nodes)
+
+    def distinct_labelings(self):
+        return generate_distinct_labelings(self.nodes)
+
     def split(self,n):
         """
-        Split a tree into the tree formed by the first n nodes
-        and the trees that remain after those nodes are removed.
+        Split a labeled (ordered) tree into the tree formed by the first n
+        nodes and the trees that remain after those nodes are removed.
         """
         assert(n>=1)
         treecopy = RootedTree(self._nl)
@@ -197,12 +247,16 @@ def _plot_labeled_subtree(nodelist, root_index, xroot, yroot, xwidth):
         ichild = nodelist.index(child)
         _plot_labeled_subtree(nodelist,ichild,xchild[i],ychild,xwidth/3.)
 
-def generate_all_labelings(tree):
-    labeled = [[tree.nodes[0]]]
-    for i in range(1,len(tree.nodes)):
+def generate_all_labelings(nodelist):
+    """
+    Returns a list of all permissible orderings of the nodes.  A permissible
+    ordering is one in which each child comes after its parent.
+    """
+    labeled = [[nodelist[0]]]
+    for i in range(1,len(nodelist)):
         new_labeled = []
         for base in labeled:
-            for node in tree.nodes[1:]:
+            for node in nodelist[1:]:
                 if (node.parent in base) and (node not in base):
                     basecopy = base.copy()
                     basecopy.append(node)
@@ -210,25 +264,32 @@ def generate_all_labelings(tree):
         labeled = new_labeled.copy()
     return labeled
 
-def generate_distinct_labelings(tree):
-    labeled = [[tree.nodes[0]]]
+def generate_distinct_labelings(nodelist):
+    """
+    Returns a list of all non-equivalent permissible orderings of the nodes.  A
+    permissible ordering is one in which each child comes after its parent.
+    Two orderings are equivalent if they differ only in the labels of 
+    equivalent nodes.  Two nodes are equivalent if they have the same parent
+    and identical subtrees.
+    """
+    labeled = [[nodelist[0]]]
     equivalence_set = []
-    for i, node in enumerate(tree.nodes):
+    for i, node in enumerate(nodelist):
         es = []
         if i == 0: equivalence_set.append(es)
         else:
-            nlform = generate_nested_list(node,tree.nodes)
+            nlform = generate_nested_list(node,nodelist)
             for child in node.parent.children:
-                if generate_nested_list(child,tree.nodes)==nlform and tree.nodes.index(child) < i:
+                if generate_nested_list(child,nodelist)==nlform and nodelist.index(child) < i:
                     es.append(child)
             equivalence_set.append(es)
         
-    for i in range(1,len(tree.nodes)):
+    for i in range(1,len(nodelist)):
         new_labeled = []
         for base in labeled:
-            for node in tree.nodes[1:]:
+            for node in nodelist[1:]:
                 if (node.parent in base) and (node not in base):
-                    if all([n in base for n in equivalence_set[tree.nodes.index(node)]]):
+                    if all([n in base for n in equivalence_set[nodelist.index(node)]]):
                         basecopy = base.copy()
                         basecopy.append(node)
                         new_labeled += [basecopy]
@@ -236,8 +297,11 @@ def generate_distinct_labelings(tree):
     return labeled
 
 
-
 def plot_subtree(nestedlist, xroot, yroot, xwidth):
+    """
+    Used recursively to plot unlabeled trees.
+    Called by tree.plot().
+    """
     import matplotlib.pyplot as plt
     import numpy as np
     plt.scatter(xroot,yroot,c='k')
@@ -252,6 +316,9 @@ def plot_subtree(nestedlist, xroot, yroot, xwidth):
 
 
 def plot_forest(forest):
+    """
+    Plot a collection of trees.
+    """
     import numpy as np
     import matplotlib.pyplot as plt
     nplots = len(forest)
@@ -264,30 +331,11 @@ def plot_forest(forest):
         tree.plot_labeled()
 
 
-def elementary_weight(tree, A, b):
-    import numpy as np
-    root = tree.nodes[0]
-    if root.children is None:
-        return sum(b)
-    elif len(root.children) == 1:
-        return sum([b[j]*subweight_vector(root.children[0], tree.nodes, A)[j] for j in range(len(b))])
-    else:
-        return sum([b[j]*np.prod([subweight_vector(child, tree.nodes, A) for child in root.children],0)[j] for j in range(len(b))])
-
-
-def subweight_vector(node, nodelist, A):
-    import numpy as np
-    if node.children is None:
-        return np.sum(A,1)
-    elif len(node.children) == 1:
-        return sum([A[:,j]*subweight_vector(node.children[0], nodelist, A)[j] for j in range(A.shape[0])])
-    else:
-        return sum([A[:,j]*np.prod([subweight_vector(child, nodelist, A) for child in node.children],0)[j] for j in range(A.shape[0])])
-
 def all_trees(order):
     """
     Generate all distinct (unlabelled) rooted trees of the prescribed order.
-    Uses the algorithm of 
+    Uses level sequences and the algorithm of 
+
       Beyer, Terry, and Sandra Mitchell Hedetniemi.
       "Constant time generation of rooted trees."
       SIAM Journal on Computing 9.4 (1980): 706-712.
@@ -303,7 +351,8 @@ def all_trees(order):
 def get_successor(s):
     """
     Compute the regular lexicographic successor to level sequence s.
-    Assume root is level 0.
+    Assumes root is level 0.
+    Called by all_trees().
     """
     import numpy as np
     if np.all(np.array(s[1:])-1==s[0]):

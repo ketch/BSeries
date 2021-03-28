@@ -1,7 +1,7 @@
 import setuptools
 from distutils.core import setup
 
-setup(name='BSerires',
+setup(name='BSeries',
       version='0.1',
       packages=['BSeries'],
       author=['David Ketcheson'],
