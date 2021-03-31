@@ -141,22 +141,51 @@ def generic_elementary_differential_string(tree):
 
     return ' '.join(factors)
 
-def elementary_differential(tree, f, u):
+def elementary_differential(tree, f, u, evaluate=False):
     from sympy import Derivative as D
+    max_der = max([len(node.children) for node in tree.nodes if node.children]) # Highest-order derivative tensor we need
     N = len(f); M = len(u);
-    F1 = np.empty((N,M), dtype=object)
-    for i in range(N):
-        for j in range(M):
-            F1[i,j] = D(f[i],u[j])
+    F = []
+    if max_der >= 1:
+        F.append(np.empty((N,M), dtype=object))
+        for i in range(N):
+            for j in range(M):
+                F[0][i,j] = D(f[i],u[j],evaluate=evaluate)
+    if max_der >= 2:
+        F.append(np.empty((N,M,M), dtype=object))
+        for i in range(N):
+            for j in range(M):
+                for k in range(M):
+                    F[1][i,j,k] = D(D(f[i],u[j],evaluate=evaluate),u[k],evaluate=evaluate)
+    if max_der >= 3:
+        F.append(np.empty((N,M,M,M), dtype=object))
+        for i in range(N):
+            for j in range(M):
+                for k in range(M):
+                    for l in range(M):
+                        F[2][i,j,k,l] = D(D(D(f[i],u[j],evaluate=evaluate),u[k],
+                                            evaluate=evaluate),u[l],evaluate=evaluate)
+    if max_der >= 4:
+        raise NotImplementedError
 
-    root = tree.nodes[0]
-    if root.children is None:
+    if tree.nodes[0].children is None:
         return f
-    elif len(root.children) == 1:
-        return sum([F1[:,j]*sub_differential(node.children[0], tree.nodes, f)[j] for j in range(N)])
-    else:
-        return
-    pass
+
+    inds = []
+    tensors = []
+    counter = 0
+    for i, node in enumerate(tree.nodes):
+        if node.children:
+            tensors.append(F[len(node.children)-1])
+        else:
+            tensors.append(f)
+        node.label = indices[counter]
+        if node.parent:
+            node.parent.label += indices[counter]
+        counter += 1
+    inds = [node.label for node in tree.nodes]
+    print(inds, tensors)
+    return object_einsum(','.join(inds), *tensors)
 
 
 def elementary_weight_einsum(tree, A, b):
