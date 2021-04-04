@@ -1,4 +1,18 @@
+"""
+Tools for representing and manipulating rooted trees.
+The main component of this module is the RootedTree object,
+whose documentation contains further details.
 
+To facilitate the display of trees, and since it is not
+convenient to use graph representations in most contexts,
+the module also defines canonical names for (unlabeled)
+trees up to order 5.  These names agree with those used
+in the books of Hairer et. al. (e.g. HNW1993) and take
+the form $t_{nj}$ where $n$ is the order of the tree and
+$j$ is an index based on a chosen canonical ordering of the trees.
+The canonical trees can be accessed directly via
+the dictionary trees.canonical_forest.
+"""
 class Node(object):
     """
     A single node of a tree.
@@ -44,15 +58,15 @@ def generate_nested_list(root,nodes):
         nl.append(generate_nested_list(child,nodes))
     return nl
 
-def make_nodelist(root):
+def descendants(node):
     """
-    Recursively finds all the nodes that are descendants of root and returns
+    Recursively finds all the nodes that are descendants of node and returns
     them as a list.
     """
-    node_list = [root]
-    if root.children is not None:
-        for child in root.children:
-            node_list += make_nodelist(child)
+    node_list = [node]
+    if node.children is not None:
+        for child in node.children:
+            node_list += descendants(child)
     return node_list
 
 class RootedTree(object):
@@ -60,8 +74,9 @@ class RootedTree(object):
     Represents a rooted tree.  Maintains two equivalent representations,
     one as a nested list and the other as a set of Nodes each with a
     parent and zero or more children.  The tree is essentially viewed
-    as unlabeled/unordered; equality is defined in this sense.
-    But the order of the list of nodes can be used as a labeling.
+    as unlabeled/unordered; two trees that are the same up to node
+    labels are considered equal.
+    But the order of the list of nodes (tree.nodes) can be used as a labeling.
 
     Can be initialized in three ways:
 
@@ -69,9 +84,16 @@ class RootedTree(object):
         2. From a set of Nodes.
         3. From a level sequence.
 
-    To do: add examples.
-    """
+    Examples::
 
+        >>> from BSeries import trees
+        >>> t = trees.RootedTree([[],[],[[]]])
+        >>> t
+        t52
+        >>> subtree = trees.RootedTree(trees.descendants(t.nodes[1]))
+        >>> print(subtree)
+        t1
+    """
     def __init__(self, initializer, name=None):
         import numpy as np
 
@@ -80,7 +102,7 @@ class RootedTree(object):
         if initializer == []:
             self._nl = []
             self.root = Node(children=None,label=0)
-            self.nodes = make_nodelist(self.root)
+            self.nodes = descendants(self.root)
 
         elif initializer[0] == 0:
             # Initialize from level sequence
@@ -125,7 +147,7 @@ class RootedTree(object):
                 self.root.add_child(child_node)
                 counter = generate_child_nodes(child, child_node, counter)
 
-            self.nodes = make_nodelist(self.root)
+            self.nodes = descendants(self.root)
             self._nl = sorted_tree(self._nl)
 
     def __hash__(self):
@@ -141,16 +163,29 @@ class RootedTree(object):
             except:
                 return str(self._nl)
 
+    def copy(self):
+        return RootedTree(self._nl)
+
     def subtrees(self):
+        r"""
+        Returns a list of the trees that are left when the root of this tree is removed.
+
+        Examples::
+
+            >>> from BSeries import trees
+            >>> t = trees.RootedTree([[],[[]]])
+            >>> t.subtrees()
+            [t1, t2]
+        """
         return [RootedTree(nl) for nl in self._nl]
 
     def __len__(self):
         return len(self.nodes)
 
-    def copy(self):
-        return RootedTree(self._nl)
-
     def order(self):
+        r"""
+        The order of a tree is the number of nodes.
+        """
         return len(self.nodes)
 
     def density(self):
@@ -164,6 +199,10 @@ class RootedTree(object):
             >>> t = trees.RootedTree([[],[],[[],[[]]]])
             >>> t.density()
             56
+            >>> t = trees.RootedTree([[],[],[]])
+            >>> t.density()
+            4
+
 
         **Reference**: :cite:`butcher2003` p. 127, eq. 301(c)
         """
@@ -176,12 +215,15 @@ class RootedTree(object):
         r"""
         The symmetry $\\sigma(t)$ of a rooted tree is...
 
-        **Examples**::
+        Examples::
 
             >>> from BSeries import trees
-            >>> t = t.RootedTree([[],[],[[],[[]]]])
-            >>> tree.symmetry()
+            >>> t = RootedTree([[],[],[[],[[]]]])
+            >>> t.symmetry()
             2
+            >>> t = trees.RootedTree([[],[],[]])
+            >>> t.symmetry()
+            6
 
         **Reference**: :cite:`butcher2003` p. 127, eq. 301(b)
         """
@@ -200,11 +242,37 @@ class RootedTree(object):
         r"""
         The number of elements of the equivalence class of the tree;
         i.e., the number of possible different monotonic labelings.
+
+        The formula used here comes from HLW p. 58, eqn. III.1.27.
+
+        Examples::
+
+            >>> from BSeries import trees
+            >>> t = RootedTree([[],[],[[],[[]]]])
+            >>> t.alpha()
+            45
+            >>> t = trees.RootedTree([[],[],[]])
+            >>> t.alpha()
+            1
+
         """
-        return len(self.distinct_labelings())
+        from sympy import factorial
+        return factorial(len(self))/(self.symmetry()*self.density())
+        # This would also work:
+        #return len(self.distinct_labelings())
 
     def __eq__(self, tree2):
-        # This is not correct!
+        r"""
+        Test equality of two rooted trees.
+
+        Example::
+
+            >>> from BSeries import trees as t
+            >>> t.RootedTree([[],[[]]]) == t.RootedTree([[[]],[]])
+            True
+            >>> t.RootedTree([[],[]]) == t.RootedTree([[[]]])
+            False
+        """
         return sorted_tree(self._nl) == sorted_tree(tree2._nl)
 
     def plot(self):
@@ -228,6 +296,9 @@ class RootedTree(object):
         """
         Split a labeled (ordered) tree into the tree formed by the first n
         nodes and the trees that remain after those nodes are removed.
+
+        This operation is defined in HNW1993 p. 266, Definition 12.2.
+        It can be used to perform the composition of two B-series.
         """
         assert(n>=1)
         treecopy = RootedTree(self._nl)
@@ -243,7 +314,7 @@ class RootedTree(object):
         for node in treecopy.nodes[n:]:
             if node.parent in treecopy.nodes[:n]:  # This node is an orphan
                 # Form the tree with this orphan as root
-                tree_nodes = make_nodelist(node)
+                tree_nodes = descendants(node)
                 forest.append(RootedTree(tree_nodes))
 
         return forest
@@ -252,7 +323,7 @@ class RootedTree(object):
     def all_partitions(self):
         """
         Compute all partitions of a tree, as defined in Section 2.3
-        of Chartier, Hairer, & Vilmart (2010).
+        of CHV2010.
         """
         forests = []
         skeletons = []
@@ -287,7 +358,7 @@ def partition_forest(tree, edge_set):
     included = np.zeros(len(tree))
     for i, node in enumerate(node_list):
         if included[i] == 0:
-            tree_nodes = make_nodelist(node)
+            tree_nodes = descendants(node)
             forest.append(RootedTree(tree_nodes))
             for tree_node in tree_nodes:
                 included[node_list.index(tree_node)] = 1
@@ -355,6 +426,8 @@ def generate_all_labelings(node_list):
     """
     Returns a list of all permissible orderings of the nodes.  A permissible
     ordering is one in which each child comes after its parent.
+
+    See e.g. HNW1993 p. 267, Example 12.5.
     """
     labeled = [[node_list[0]]]
     for i in range(1,len(node_list)):
@@ -447,13 +520,13 @@ def all_trees(order):
     Note that the ordering of the trees matches the tables from
     Hairer's books up to order 4, but differs at order 5.
     """
+    if order == 1: return [RootedTree([])]
     forest = []
-    if order == 1: return forest
     s = list(range(order))
     i = 0
     while s is not None:
         i += 1
-        forest.append(RootedTree(s,name='t{}{}'.format(order,i)))
+        forest.append(RootedTree(s))
         s = get_successor(s)
 
     return forest[::-1]

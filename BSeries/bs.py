@@ -2,71 +2,12 @@
 A library for working with B-series.
 """
 
-indices = 'ijklmnpqrstuvwxyz'
+indices = 'jklmpqrstuvwxyz'
 import sympy
 h = sympy.Symbol('h')
 y = sympy.Symbol('y')
 
 import numpy as np
-
-def object_einsum(string, *arrays):
-    """
-    Simplified object einsum, without much error checking.
-    Stolen from https://gist.github.com/seberg/5236560, with some modifications.
-    We can remove this and rely directly on np.einsum after the related
-    PR is merged to numpy.
-    """
-    import copy
-    try:
-        return np.einsum(string, *arrays)
-    except TypeError:
-        pass
-    
-    s = string.split('->')
-    in_op = s[0].split(',')
-    out_op = None if len(s) == 1 else s[1].replace(' ', '')
-
-    in_op = [axes.replace(' ', '') for axes in in_op]
-    all_axes = set()
-    repeated_axes = set()
-    
-    for axes in in_op:
-        list(repeated_axes.update(ax) for ax in axes if ax in all_axes)
-        all_axes.update(axes)
-
-    if out_op is None:
-        out_op = set(sorted(all_axes))
-        list(out_op.discard(rep_ax) for rep_ax in repeated_axes)
-    else:
-        all_axes.update(out_op)
-    
-    perm_dict = {_[1]: _[0] for _ in enumerate(all_axes)}
-    
-    dims = len(perm_dict)
-    op_axes = []
-    for axes in (in_op + list((out_op,))):
-        op = [-1] * dims
-        for i, ax in enumerate(axes):
-           op[perm_dict[ax]] = i
-        op_axes.append(op)
-    
-    op_flags = [('readonly',)] * len(in_op) + [('readwrite', 'allocate')]
-    dtypes = [np.object_] * (len(in_op) + 1) # cast all to object
-
-    nditer = np.nditer(arrays + (None,), op_axes=op_axes, flags=['buffered', 'delay_bufalloc', 'reduce_ok', 'grow_inner', 'refs_ok'], op_dtypes=dtypes, op_flags=op_flags)
-
-    nditer.operands[-1][...] = 0
-    nditer.reset()
-    
-    for vals in nditer:
-        out = vals[-1]
-        prod = copy.deepcopy(vals[0])
-        #prod = vals[0]
-        for value in vals[1:-1]:
-            prod *= value
-        out += prod
-    
-    return nditer.operands[-1]
 
 class BSeries(object):
 
@@ -141,7 +82,38 @@ def generic_elementary_differential_string(tree):
 
     return ' '.join(factors)
 
-def elementary_differential(tree, f, u, evaluate=False):
+def elementary_differential(tree, f=None, u=None, evaluate=False):
+    """
+    Compute the elementary differential corresponding to a given tree.
+
+    If f is not provided, the return value is a LaTeX string corresponding
+    to the elementary differential in summation form (as in Table 2.2
+    of HNW1993).
+
+    If f and u are provided, then the derivatives are computed and
+    the summations evaluated.
+    """
+    from BSeries.util import object_einsum
+    from BSeries import trees
+    # This code will work with plain np.einsum() after
+    # https://github.com/numpy/numpy/pull/18053 gets merged
+    if f is None:
+        # f is just an undefined symbolic function.  Return a string.
+        outstr = '$'
+        for i, node in enumerate(tree.nodes):
+            node.label = indices[i]
+        for i, node in enumerate(tree.nodes):
+            outstr+='f^'+node.label
+            if node.children:
+                outstr += '_{'
+                for child in node.children:
+                    outstr += child.label
+                outstr += '}'
+        outstr += '$'
+        return outstr
+
+
+    if tree == trees.RootedTree([]): return f
     from sympy import Derivative as D
     max_der = max([len(node.children) for node in tree.nodes if node.children]) # Highest-order derivative tensor we need
     N = len(f); M = len(u);
@@ -156,16 +128,23 @@ def elementary_differential(tree, f, u, evaluate=False):
         for i in range(N):
             for j in range(M):
                 for k in range(M):
-                    F[1][i,j,k] = D(D(f[i],u[j],evaluate=evaluate),u[k],evaluate=evaluate)
+                    F[1][i,j,k] = D(f[i],u[j],u[k],evaluate=evaluate)
     if max_der >= 3:
         F.append(np.empty((N,M,M,M), dtype=object))
         for i in range(N):
             for j in range(M):
                 for k in range(M):
                     for l in range(M):
-                        F[2][i,j,k,l] = D(D(D(f[i],u[j],evaluate=evaluate),u[k],
-                                            evaluate=evaluate),u[l],evaluate=evaluate)
+                        F[2][i,j,k,l] = D(f[i],u[j],u[k],u[l],evaluate=evaluate)
     if max_der >= 4:
+        F.append(np.empty([N]+[M]*4, dtype=object))
+        for i in range(N):
+            for j in range(M):
+                for k in range(M):
+                    for l in range(M):
+                        for m in range(M):
+                            F[3][i,j,k,l,m] = D(f[i],u[j],u[k],u[l],u[m],evaluate=evaluate)
+    if max_der >= 5:
         raise NotImplementedError
 
     if tree.nodes[0].children is None:
@@ -184,13 +163,13 @@ def elementary_differential(tree, f, u, evaluate=False):
             node.parent.label += indices[counter]
         counter += 1
     inds = [node.label for node in tree.nodes]
-    print(inds, tensors)
     return object_einsum(','.join(inds), *tensors)
 
 
 def elementary_weight_einsum(tree, A, b):
     # This code will work with plain np.einsum() after
     # https://github.com/numpy/numpy/pull/18053 gets merged
+    from BSeries.util import object_einsum
     import numpy as np
     c = np.sum(A,1)
     inds = []
@@ -247,8 +226,8 @@ def subweight_vector(node, nodelist, A):
 
 def subs(b, a, t, args='trees'):
     """
-    Returns the coefficient of t in the B-series that is formed
-    by substituting the B-series b into the B-series a.
+    Returns the coefficient corresponding to tree t in the B-series that is
+    formed by substituting the B-series b into the B-series a.
     """
     from BSeries import trees
     from functools import reduce
@@ -257,8 +236,5 @@ def subs(b, a, t, args='trees'):
     forests, skeletons = t.all_partitions()
     expr = 0
     for forest, skeleton in zip(forests, skeletons):
-        if args == 'trees':
-            expr += reduce(mul,[b(tree) for tree in forest])*a(skeleton)        
-        elif args == 'integers':
-            expr += reduce(mul,[b(trees.intmap(tree)) for tree in forest])*a(skeleton)        
+        expr += reduce(mul,[b(tree) for tree in forest])*a(skeleton)        
     return expr

@@ -3,13 +3,15 @@
 import matplotlib
 matplotlib.use('Agg')
 import doctest
-import nodepy
+import BSeries
 import unittest
 import os
 import subprocess
 import tempfile
 import sys
 import nbformat
+
+skip_notebooks = ['Modified equations','new_rooted_trees']
 
 if sys.version_info >= (3,0):
     kernel = 'python3'
@@ -38,18 +40,18 @@ def _notebook_run(path):
 
 def run_tests():
     for filename in os.listdir('./examples'):
-        if (filename.split('.')[-1] == 'ipynb'):
+        if (filename.split('.')[-1] == 'ipynb') and (filename.split('.')[0] not in skip_notebooks):
             print('running notebook: '+ filename)
             _, errors = _notebook_run('./examples/'+filename)
             if errors != []:
                 raise(Exception)
 
-    for module_name in ['BSeries',
+    for module_name in ['bs',
                         'trees']:
-        module = nodepy.__getattribute__(module_name)
+        module = BSeries.__getattribute__(module_name)
         doctest.testmod(module)
 
-    unittest.main(module='BSeries.unit_tests',exit=False)
+    unittest.main(module='BSeries.test_trees',exit=False)
 
 if __name__ == '__main__':
     run_tests()
