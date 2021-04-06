@@ -299,6 +299,8 @@ class RootedTree(object):
 
         This operation is defined in HNW1993 p. 266, Definition 12.2.
         It can be used to perform the composition of two B-series.
+
+        This is also described in Section 2.2 of CHV2010.
         """
         assert(n>=1)
         treecopy = RootedTree(self._nl)
@@ -308,16 +310,17 @@ class RootedTree(object):
                 if node.children:
                     if node2 in node.children:
                         node.children.remove(node2)
-        # Add primary tree to forest
-        forest = [RootedTree(treecopy.nodes[:n])]
-        # Add secondary trees to forest
+        subtree = RootedTree(treecopy.nodes[:n])
+
+        # Secondary trees form forest
+        forest = []
         for node in treecopy.nodes[n:]:
             if node.parent in treecopy.nodes[:n]:  # This node is an orphan
                 # Form the tree with this orphan as root
                 tree_nodes = descendants(node)
                 forest.append(RootedTree(tree_nodes))
 
-        return forest
+        return subtree, forest
 
 
     def all_partitions(self):
@@ -566,28 +569,6 @@ def to_tuple(lst):
 def gamma(t):
     return t.density()
 
-def intmap(t):
-    """
-    Canonical map from trees to integers.
-    """
-    if t == RootedTree([]): return 1
-    if t == RootedTree([[]]): return 2
-    if t == RootedTree([[],[]]): return 3
-    if t == RootedTree([[[]]]): return 4
-    if t == RootedTree([[],[],[]]): return 5
-    if t == RootedTree([[],[[]]]): return 6
-    if t == RootedTree([[[],[]]]): return 7
-    if t == RootedTree([[[[]]]]): return 8
-    if t == RootedTree([[],[],[],[]]): return 9
-    if t == RootedTree([[],[],[[]]]): return 10
-    if t == RootedTree([[],[[],[]]]): return 11
-    if t == RootedTree([[],[[[]]]]): return 12
-    if t == RootedTree([[[]],[[]]]): return 13
-    if t == RootedTree([[[],[],[]]]): return 14
-    if t == RootedTree([[[],[[]]]]): return 15
-    if t == RootedTree([[[[],[]]]]): return 16
-    if t == RootedTree([[[[[]]]]]): return 17
-
 canonical_forest = {}
 canonical_forest['t1'] = RootedTree([])
 canonical_forest['t2'] = RootedTree([[]])
@@ -606,3 +587,7 @@ canonical_forest['t56'] = RootedTree([[[],[],[]]])
 canonical_forest['t57'] = RootedTree([[[],[[]]]])
 canonical_forest['t58'] = RootedTree([[[[],[]]]])
 canonical_forest['t59'] = RootedTree([[[[[]]]]])
+for p in range(6,10):
+    for i, tree in enumerate(all_trees(p)):
+        name = 't'+str(p)+str(i)
+        canonical_forest[name] = tree
