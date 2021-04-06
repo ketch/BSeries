@@ -61,7 +61,7 @@ def generate_nested_list(root,nodes):
 def descendants(node):
     """
     Recursively finds all the nodes that are descendants of node and returns
-    them as a list.
+    them as a list.  The node itself is included.
     """
     node_list = [node]
     if node.children is not None:
@@ -99,7 +99,12 @@ class RootedTree(object):
 
         self.name = name
 
-        if initializer == []:
+        if initializer is None:  # Empty tree
+            self._nl = None
+            self.root = None
+            self.nodes = None
+            self.name = 't0'
+        elif initializer == []:
             self._nl = []
             self.root = Node(children=None,label=0)
             self.nodes = descendants(self.root)
@@ -152,6 +157,7 @@ class RootedTree(object):
 
     def __hash__(self):
         # Required so that Trees can be dict keys
+        if self._nl is None: return hash(None)
         return hash(to_tuple(sorted_tree(self._nl)))
 
     def __repr__(self):
@@ -299,8 +305,6 @@ class RootedTree(object):
 
         This operation is defined in HNW1993 p. 266, Definition 12.2.
         It can be used to perform the composition of two B-series.
-
-        This is also described in Section 2.2 of CHV2010.
         """
         assert(n>=1)
         treecopy = RootedTree(self._nl)
@@ -322,6 +326,39 @@ class RootedTree(object):
 
         return subtree, forest
 
+    def all_splittings(self):
+        """
+        Compute all splittings of a tree, as defined in Section 2.2
+        of CHV2010.
+        """
+        tree = self.copy() # Have to do this so that nodes are ordered consistently
+                           # when we copy again later.
+        forests = [[self.copy()]]
+        subtrees = [RootedTree(None)]
+        num_nodes = len(tree) # Number of nodes
+        #if num_nodes == 1: return forests, subtrees
+        for i in range(2**(num_nodes-1)):
+            node_set = bin(i)[2:].zfill(num_nodes-1)
+            if num_nodes>1:
+                node_set = '1'+node_set
+            else:
+                node_set = '1'  # Special case for tree with one node
+            # node_set is a string where '0' indicates that the corresponding
+            # node is not in the subtree
+            valid_subtree = 1
+            nodes = []
+            for i in range(len(node_set)):
+                if node_set[i] == '1': nodes.append(tree.nodes[i])
+            # Check that the included nodes are a connected graph
+            for node in nodes[1:]:  # Skip the root as it has no parent
+                if node.parent not in nodes:
+                    valid_subtree = 0
+
+            if valid_subtree:
+                forests.append(splitting_forest(tree, node_set))
+                subtrees.append(splitting_subtree(tree, node_set))
+
+        return forests, subtrees
 
     def all_partitions(self):
         """
@@ -331,6 +368,8 @@ class RootedTree(object):
         forests = []
         skeletons = []
         num_edges = len(self)-1
+        if num_edges == 0:
+            return [[RootedTree([])]], [RootedTree([])]
         for i in range(2**num_edges):  # Loop over all partitions
             edge_set = bin(i)[2:].zfill(num_edges)
             # edge_set is a string where '0' indicates that the edge leading to
@@ -342,12 +381,39 @@ class RootedTree(object):
 
         return forests, skeletons
 
+def splitting_subtree(tree, node_set):
+    node_list = tree.copy().nodes
+    subtree_nodes = []
+    for i in range(len(node_set)):
+        if node_set[i] == '1': 
+            subtree_nodes.append(node_list[i])
+        else:
+            node_list[i].parent.children.remove(node_list[i])
+    return RootedTree(subtree_nodes)
+
+
+def splitting_forest(tree, node_set):
+    """
+    The splitting forest of the tree is the set of trees that result when the
+    nodes marked by zero in node_set are removed.
+    """
+    forest = []
+    subtree_nodes = []
+    node_list = tree.copy().nodes
+    for i in range(len(node_set)):
+        if node_set[i] == '1': 
+            subtree_nodes.append(node_list[i])
+    for node in node_list:
+        if (node.parent in subtree_nodes) and (node not in subtree_nodes):
+            forest.append(RootedTree(descendants(node)))
+    if forest == []: forest = [RootedTree(None)]
+    return forest
+
 
 def partition_forest(tree, edge_set):
     """
-    The partition forest of the tree represented by node_list
-    is the set of trees that result when the edges marked by
-    zero in edge_set are removed.
+    The partition forest of the tree is the set of trees that result when the
+    edges marked by zero in edge_set are removed.
     """
     import numpy as np
     # first make a copy
@@ -557,6 +623,7 @@ def sorted_tree(ls):
     """
     Recursively sort a nested list to get a canonical version.
     """
+    if ls is None: return ls
     for i in range(len(ls)):
         if type(ls[i]) is list:
             ls[i] = sorted_tree(ls[i])
@@ -570,6 +637,7 @@ def gamma(t):
     return t.density()
 
 canonical_forest = {}
+canonical_forest['t0'] = RootedTree(None)
 canonical_forest['t1'] = RootedTree([])
 canonical_forest['t2'] = RootedTree([[]])
 canonical_forest['t31'] = RootedTree([[],[]])

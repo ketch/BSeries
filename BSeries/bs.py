@@ -223,11 +223,55 @@ def subweight_vector(node, nodelist, A):
     else:
         return sum([A[:,j]*np.prod([subweight_vector(child, nodelist, A) for child in node.children],0)[j] for j in range(A.shape[0])])
 
+def compose(b, a, t):
+    """
+    Returns the coefficient corresponding to tree t in the B-series that is
+    formed by composing the B-series a with the B-series b.
 
-def subs(b, a, t, args='trees'):
+    See CHV2010 Section 3.1.
+
+    Examples::
+
+        >>> from BSeries import trees, bs
+        >>> a = bs.TreeMap('a')
+        >>> b = bs.TreeMap('b')
+        >>> b[trees.RootedTree(None)]=1
+        >>> t = trees.RootedTree([])
+        >>> bs.compose(b,a,t)
+        a0*b1 + a1
+        >>> t = trees.RootedTree([[],[[]]])
+        >>> bs.compose(b,a,t)
+        a0*b42 + a1*b1*b2 + a2*b1**2 + a2*b2 + a31*b1 + a32*b1 + a42
+    """
+    from BSeries import trees
+    from functools import reduce
+    from operator import mul
+
+    forests, subtrees = t.all_splittings()
+    expr = 0
+    for forest, subtree in zip(forests, subtrees):
+        expr += reduce(mul,[b(tree) for tree in forest])*a(subtree)
+    return expr
+
+def subs(b, a, t):
     """
     Returns the coefficient corresponding to tree t in the B-series that is
     formed by substituting the B-series b into the B-series a.
+
+    See CHV2010 Section 3.2.
+
+    Examples::
+
+        >>> from BSeries import trees, bs
+        >>> a = bs.TreeMap('a')
+        >>> b = bs.TreeMap('b')
+        >>> b[trees.RootedTree(None)]=0
+        >>> t = trees.RootedTree([])
+        >>> bs.subs(b,a,t)
+        a1*b1
+        >>> t = trees.RootedTree([[[]]])
+        >>> bs.subs(b,a,t)
+        a1*b32 + 2*a2*b1*b2 + a32*b1**3
     """
     from BSeries import trees
     from functools import reduce
