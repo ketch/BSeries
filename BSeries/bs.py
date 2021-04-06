@@ -1,5 +1,7 @@
 """
 A library for working with B-series.
+
+We use the coefficient normalization that appears in e.g. CHV2010.
 """
 
 indices = 'jklmpqrstuvwxyz'
@@ -25,26 +27,8 @@ class BSeries(object):
         if self.coeffs:
             value = y
             for i in range(1,order+1):
-                value += h**i/sympy.factorial(i)*sum([t.alpha()*self.coeffs(t)*self.F(t) for t in trees.all_trees(i)])
+                value += h**i*sum([self.coeffs(t)*self.F(t)/t.symmetry() for t in trees.all_trees(i)])
             return value
-
-    def print(self, order=2):
-        from BSeries import trees
-        if self.F and (self.coeffs is None):
-            # print elementary differentials with unknown coeffs
-            pass
-        elif self.coeffs and self.F is None:
-            # print elementary weights and unknown differentials
-            outstr = r'y\\'
-            for p in range(1,order+1):
-                outstr += r' + h^{}/{}! ('.format(p,p)
-                for i, tree in enumerate(trees.all_trees(p)):
-                    outstr += str(tree.alpha()*self.coeffs(tree))
-                    outstr += ' F(t_{{ {}{} }})(y)'.format(p,i+1)
-                    outstr += r'+'
-                outstr = outstr[:-1]
-                outstr += r')\\'
-            return outstr
 
 class TreeMap(dict):
 
