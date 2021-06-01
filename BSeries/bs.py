@@ -1,7 +1,8 @@
 """
 A library for working with B-series.
 
-We use the coefficient normalization that appears in e.g. CHV2010.
+We use the coefficient normalization that appears in 
+HLW (1.23), and in CHV2010 on the middle of p. 411.
 """
 
 indices = 'jklmpqrstuvwxyz'
@@ -31,6 +32,17 @@ class BSeries(object):
             return value
 
 class TreeMap(dict):
+    """
+    A mapping from the rooted trees to the real numbers.
+
+    Let 0 denote the empty tree.
+    If a(0)=1, the resulting set of maps form a group under the
+    composition law (see bs.compose()).  This is known as the
+    Butcher group.
+
+    If a(0)=0, the resulting set of maps form a monoid under the
+    substitution law (see bs.subs()).
+    """
 
     def __init__(self, symbol='a'):
         self.symbol = symbol
