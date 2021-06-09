@@ -78,7 +78,7 @@ def generic_elementary_differential_string(tree):
 
     return ' '.join(factors)
 
-def elementary_differential(tree, f=None, u=None, evaluate=False):
+def elementary_differential(tree, f=None, y=None, evaluate=False):
     """
     Compute the elementary differential corresponding to a given tree.
 
@@ -86,11 +86,19 @@ def elementary_differential(tree, f=None, u=None, evaluate=False):
     to the elementary differential in summation form (as in Table 2.2
     of HNW1993).
 
-    If f and u are provided, then the derivatives are computed and
+    If f and y are provided, then the derivatives are computed and
     the summations evaluated.
+
+    Perhaps this should be rewritten to take just f and y as arguments and return
+    a function on trees.
     """
     from BSeries.util import object_einsum
     from BSeries import trees
+    from sympy import Derivative as D
+    from sympy import tensor
+    from sympy import simplify
+    dba = tensor.array.derive_by_array
+
     # This code will work with plain np.einsum() after
     # https://github.com/numpy/numpy/pull/18053 gets merged
     if f is None:
@@ -108,44 +116,54 @@ def elementary_differential(tree, f=None, u=None, evaluate=False):
         outstr += '$'
         return outstr
 
-
-    if tree == trees.RootedTree([]): return f
-    from sympy import Derivative as D
-    max_der = max([len(node.children) for node in tree.nodes if node.children]) # Highest-order derivative tensor we need
-    N = len(f); M = len(u);
-    F = []
-    if max_der >= 1:
-        F.append(np.empty((N,M), dtype=object))
-        for i in range(N):
-            for j in range(M):
-                F[0][i,j] = D(f[i],u[j],evaluate=evaluate)
-    if max_der >= 2:
-        F.append(np.empty((N,M,M), dtype=object))
-        for i in range(N):
-            for j in range(M):
-                for k in range(M):
-                    F[1][i,j,k] = D(f[i],u[j],u[k],evaluate=evaluate)
-    if max_der >= 3:
-        F.append(np.empty((N,M,M,M), dtype=object))
-        for i in range(N):
-            for j in range(M):
-                for k in range(M):
-                    for l in range(M):
-                        F[2][i,j,k,l] = D(f[i],u[j],u[k],u[l],evaluate=evaluate)
-    if max_der >= 4:
-        F.append(np.empty([N]+[M]*4, dtype=object))
-        for i in range(N):
-            for j in range(M):
-                for k in range(M):
-                    for l in range(M):
-                        for m in range(M):
-                            F[3][i,j,k,l,m] = D(f[i],u[j],u[k],u[l],u[m],evaluate=evaluate)
-    if max_der >= 5:
-        raise NotImplementedError
-
+    # Empty tree and single node are special cases
     if tree.nodes[0].children is None:
         return f
+    elif tree == trees.RootedTree([]):
+        return f
 
+    # Compute tensors of partial derivatives
+    max_der = max([len(node.children) for node in tree.nodes if node.children]) # Highest-order derivative tensor we need
+    F = []
+    if evaluate:  # Need to debug this
+        X = f
+        for j in range(1,max_der+1):
+            X = dba(X,y)
+            permind = [j]+list(range(j))
+            Y = sympy.permutedims(X,permind)
+            F.append(Y.copy())
+    else:
+        N = len(f); M = len(y);
+        if max_der >= 1:
+            F.append(np.empty((N,M), dtype=object))
+            for i in range(N):
+                for j in range(M):
+                    F[0][i,j] = D(f[i],y[j],evaluate=evaluate)
+        if max_der >= 2:
+            F.append(np.empty((N,M,M), dtype=object))
+            for i in range(N):
+                for j in range(M):
+                    for k in range(M):
+                        F[1][i,j,k] = D(f[i],y[j],y[k],evaluate=evaluate)
+        if max_der >= 3:
+            F.append(np.empty((N,M,M,M), dtype=object))
+            for i in range(N):
+                for j in range(M):
+                    for k in range(M):
+                        for l in range(M):
+                            F[2][i,j,k,l] = D(f[i],y[j],y[k],y[l],evaluate=evaluate)
+        if max_der >= 4:
+            F.append(np.empty([N]+[M]*4, dtype=object))
+            for i in range(N):
+                for j in range(M):
+                    for k in range(M):
+                        for l in range(M):
+                            for m in range(M):
+                                F[3][i,j,k,l,m] = D(f[i],y[j],y[k],y[l],y[m],evaluate=evaluate)
+        if max_der >= 5:
+            raise NotImplementedError
+
+    # Set up and perform tensor contraction
     inds = []
     tensors = []
     counter = 0
@@ -198,6 +216,9 @@ def elementary_weight(tree, A, b):
     Runge-Kutta coefficients.
     """
     import numpy as np
+    if tree._nl == None:
+        return 0
+
     root = tree.nodes[0]
     if root.children is None:
         return sum(b)
@@ -225,6 +246,9 @@ def compose(b, a, t):
     formed by composing the B-series a with the B-series b.
 
     See CHV2010 Section 3.1.
+
+    Perhaps this should be rewritten to take just (b, a) and return a function that takes a tree.
+    Could also use operator overloading.
 
     Examples::
 
@@ -256,6 +280,9 @@ def subs(b, a, t):
 
     See CHV2010 Section 3.2.
 
+    Perhaps this should be rewritten to take just (b, a) and return a function that takes a tree.
+    Could also use operator overloading.
+
     Examples::
 
         >>> from BSeries import trees, bs
@@ -278,3 +305,44 @@ def subs(b, a, t):
     for forest, skeleton in zip(forests, skeletons):
         expr += reduce(mul,[b(tree) for tree in forest])*a(skeleton)        
     return expr
+
+def modified_equation(y, f, A, b, order=2):
+    """
+    Return the modified equation up to a prescribed order in h, for the Runge-Kutta
+    method (A,b) applied to the differential equation y'(t) = f(y).
+
+    In other words, this computes a function $f_h(y)$ such that the approximate
+    solution given by the RK method applied to y'(t) = f(y) is the exact solution
+    of $y'(t) = f_h(y)$.  The function $f_h$ is expressed as a power series in
+    $h$ and the returned function is the truncation of that power series (at the
+    specified order).
+    """
+    from BSeries import trees
+    cf = trees.canonical_forest
+
+    # Construct the B-series of the RK method
+    a = TreeMap('a')
+
+    forest = trees.trees_to_order(order)
+    for tree in forest.values():
+        a[tree] = elementary_weight(tree,A,b)
+
+    # Exact solution B-series:
+    e = lambda t: sympy.Rational(1)/trees.gamma(t)
+    # Modified equation B-series
+    B = TreeMap('b')
+
+    B[cf['t1']] = a[cf['t1']]
+    # Recursively solve subs(B, e)(t) = a(t)
+    # This works because subs(B, e, t) = B(t) + lower order terms
+    for p in range(2,order+1):
+        for t in trees.all_trees(p):
+            B[t] = a[t] - subs(B, e, t) + B[t]
+
+    series = np.zeros_like(f,dtype=object)
+    for p in range(1,order+1):
+        for t in trees.all_trees(p):
+            series += h**(p-1)/t.symmetry() * B[t]*elementary_differential(t,f,y,evaluate=True)
+
+    return series
+

@@ -192,6 +192,7 @@ class RootedTree(object):
         r"""
         The order of a tree is the number of nodes.
         """
+        if self._nl is None: return 0
         return len(self.nodes)
 
     def density(self):
@@ -659,3 +660,6 @@ for p in range(6,10):
     for i, tree in enumerate(all_trees(p)):
         name = 't'+str(p)+str(i)
         canonical_forest[name] = tree
+
+def trees_to_order(p):
+    return {name: tree for name, tree in canonical_forest.items() if tree.order() <= p}
