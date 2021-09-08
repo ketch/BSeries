@@ -17,10 +17,20 @@ of nonlinear ODEs.  See these notebooks for some examples:
 
 The package also implements multiples representations of rooted trees.
 
+## Installation
+
+```
+pip install bseries
+```
+
+## Contributions and feedback
+
 Contributions are very welcome; please open a pull request.  Bug reports
 and feature requests can also be made through the issue tracker.
 
-Planned future work:
+## Planned future work:
 
+- Documentation
+- More testing and continuous integration
 - Additional examples demonstrating package capabilities with respect to trees and elementary differentials
 - Extensions to work with other classes of methods (e.g. partitioned methods)
