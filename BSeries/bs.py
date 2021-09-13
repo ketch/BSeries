@@ -125,7 +125,8 @@ def elementary_differential(tree, f=None, y=None, evaluate=False):
     # Compute tensors of partial derivatives
     max_der = max([len(node.children) for node in tree.nodes if node.children]) # Highest-order derivative tensor we need
     F = []
-    if evaluate:  # Need to debug this
+    if evaluate:  # This has been tested and matches the results of the second approach below,
+                  # as far as that one goes.
         X = f
         for j in range(1,max_der+1):
             X = dba(X,y)
@@ -161,6 +162,15 @@ def elementary_differential(tree, f=None, y=None, evaluate=False):
                             for m in range(M):
                                 F[3][i,j,k,l,m] = D(f[i],y[j],y[k],y[l],y[m],evaluate=evaluate)
         if max_der >= 5:
+            F.append(np.empty([N]+[M]*5, dtype=object))
+            for i in range(N):
+                for j in range(M):
+                    for k in range(M):
+                        for l in range(M):
+                            for m in range(M):
+                                for n in range(M):
+                                    F[4][i,j,k,l,m,n] = D(f[i],y[j],y[k],y[l],y[m],y[n],evaluate=evaluate)
+        if max_der >= 6:
             raise NotImplementedError
 
     # Set up and perform tensor contraction
@@ -316,6 +326,8 @@ def modified_equation(y, f, A, b, order=2):
     of $y'(t) = f_h(y)$.  The function $f_h$ is expressed as a power series in
     $h$ and the returned function is the truncation of that power series (at the
     specified order).
+
+    See for example Section 3.2 of CHV2010.
     """
     from BSeries import trees
     cf = trees.canonical_forest
@@ -346,3 +358,49 @@ def modified_equation(y, f, A, b, order=2):
 
     return series
 
+def modifying_integrator(y, f, A, b, order=2):
+    """
+    Compute a "modifying integrator" ODE up to a prescribed order in h, for the
+    Runge-Kutta method (A,b) applied to the differential equation y'(t) = f(y).
+
+    In other words, this computes a function $f_h(y)$ such that the approximate
+    solution given by the RK method applied to y'(t) = f_h(y) is the exact solution
+    of $y'(t) = f(y)$.  The function $f_h$ is expressed as a power series in
+    $h$ and the returned function is the truncation of that power series (at the
+    specified order).
+
+    See for example Section 3.2 of CHV2010.
+    """
+    from BSeries import trees
+    cf = trees.canonical_forest
+
+    # Construct the B-series of the RK method
+    a = TreeMap('a')
+
+    forest = trees.trees_to_order(order)
+    for tree in forest.values():
+        a[tree] = elementary_weight(tree,A,b)
+
+    # Exact solution B-series:
+    e = lambda t: sympy.Rational(1)/trees.gamma(t)
+    # Modified equation B-series
+    B = TreeMap('b')
+
+    B[cf['t1']] = e(cf['t1'])
+    # Recursively solve subs(B, a)(t) = e(t)
+    # This works because subs(B, a, t) = B(t) + lower order terms
+    for p in range(2,order+1):
+        for t in trees.all_trees(p):
+            B[t] = e(t) - subs(B, a, t) + B[t]
+
+    series = np.zeros_like(f,dtype=object)
+    for p in range(1,order+1):
+        for t in trees.all_trees(p):
+            if B[t] != 0:  # This is just for efficiency -- skip the computation if the coeff is zero
+                if f is not None:
+                    series += h**(p-1)/t.symmetry() * B[t]*elementary_differential(t,f,y,evaluate=True)
+                else:
+                    print(B[t]/t.symmetry(), t)
+                    #series += h**(p-1)/t.symmetry() * B[t]*t#elementary_differential(t,f,y)
+
+    return series

@@ -82,7 +82,7 @@ class RootedTree(object):
 
         1. From a nested list.
         2. From a set of Nodes.
-        3. From a level sequence.
+        3. From a level sequence.  See Beyer & Hedetniem 1980.
 
     Examples::
 
