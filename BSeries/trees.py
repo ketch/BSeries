@@ -109,10 +109,11 @@ class RootedTree(object):
             self.root = Node(children=None,label=0)
             self.nodes = descendants(self.root)
 
-        elif initializer[0] == 0:
+        elif isinstance(initializer[0],(int,np.integer)):
             # Initialize from level sequence
-            assert(min(initializer)>=0)
-            assert(min(np.diff(initializer))<=1)
+            #assert(min(initializer)>=0)
+            if len(initializer)>1:
+                assert(min(np.diff(initializer))<=1)
             self.root = Node(children=None,label=0)
             self.nodes = [self.root]
             lev_seq = initializer
@@ -128,6 +129,7 @@ class RootedTree(object):
                 for child in self.root.children:
                     self._nl.append(generate_nested_list(child,self.nodes))
             self._nl = sorted_tree(self._nl)
+            self._level_sequence = initializer
 
         elif type(initializer[0]) is Node:
             # Initialize from node_list
@@ -161,6 +163,7 @@ class RootedTree(object):
         return hash(to_tuple(sorted_tree(self._nl)))
 
     def __repr__(self):
+        if hasattr(self,'_level_sequence'): return str(self._level_sequence)
         if self.name: return self.name
         else:
             nl = sorted_tree(self._nl)
