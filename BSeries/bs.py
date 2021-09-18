@@ -316,7 +316,7 @@ def subs(b, a, t):
         expr += reduce(mul,[b(tree) for tree in forest])*a(skeleton)        
     return expr
 
-def modified_equation(y, f, A, b, order=2):
+def modified_equation(y, f, A, b, order=2, return_bseries=False):
     """
     Return the modified equation up to a prescribed order in h, for the Runge-Kutta
     method (A,b) applied to the differential equation y'(t) = f(y).
@@ -351,6 +351,9 @@ def modified_equation(y, f, A, b, order=2):
         for t in trees.all_trees(p):
             B[t] = a[t] - subs(B, e, t) + B[t]
 
+    if return_bseries:
+        return B
+
     series = np.zeros_like(f,dtype=object)
     for p in range(1,order+1):
         for t in trees.all_trees(p):
@@ -358,7 +361,7 @@ def modified_equation(y, f, A, b, order=2):
 
     return series
 
-def modifying_integrator(y, f, A, b, order=2):
+def modifying_integrator(y, f, A, b, order=2, return_bseries=False):
     """
     Compute a "modifying integrator" ODE up to a prescribed order in h, for the
     Runge-Kutta method (A,b) applied to the differential equation y'(t) = f(y).
@@ -392,6 +395,9 @@ def modifying_integrator(y, f, A, b, order=2):
     for p in range(2,order+1):
         for t in trees.all_trees(p):
             B[t] = e(t) - subs(B, a, t) + B[t]
+
+    if return_bseries:
+        return B
 
     series = np.zeros_like(f,dtype=object)
     for p in range(1,order+1):
