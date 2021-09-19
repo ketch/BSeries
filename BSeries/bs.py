@@ -316,7 +316,7 @@ def subs(b, a, t):
         expr += reduce(mul,[b(tree) for tree in forest])*a(skeleton)        
     return expr
 
-def modified_equation(y, f, A, b, order=2):
+def modified_equation(y, f, A, b, order=2, return_coefficients=False):
     """
     Return the modified equation up to a prescribed order in h, for the Runge-Kutta
     method (A,b) applied to the differential equation y'(t) = f(y).
@@ -326,6 +326,9 @@ def modified_equation(y, f, A, b, order=2):
     of $y'(t) = f_h(y)$.  The function $f_h$ is expressed as a power series in
     $h$ and the returned function is the truncation of that power series (at the
     specified order).
+    
+    If `return_coefficients` is set to `True`, the function returns the coefficients
+    of the B-series as `TreeMap`.
 
     See for example Section 3.2 of CHV2010.
     """
@@ -351,6 +354,9 @@ def modified_equation(y, f, A, b, order=2):
         for t in trees.all_trees(p):
             B[t] = a[t] - subs(B, e, t) + B[t]
 
+    if return_coefficients:
+        return B
+
     series = np.zeros_like(f,dtype=object)
     for p in range(1,order+1):
         for t in trees.all_trees(p):
@@ -358,7 +364,7 @@ def modified_equation(y, f, A, b, order=2):
 
     return series
 
-def modifying_integrator(y, f, A, b, order=2):
+def modifying_integrator(y, f, A, b, order=2, return_coefficients=False):
     """
     Compute a "modifying integrator" ODE up to a prescribed order in h, for the
     Runge-Kutta method (A,b) applied to the differential equation y'(t) = f(y).
@@ -368,6 +374,9 @@ def modifying_integrator(y, f, A, b, order=2):
     of $y'(t) = f(y)$.  The function $f_h$ is expressed as a power series in
     $h$ and the returned function is the truncation of that power series (at the
     specified order).
+    
+    If `return_coefficients` is set to `True`, the function returns the coefficients
+    of the B-series as `TreeMap`.
 
     See for example Section 3.2 of CHV2010.
     """
@@ -392,6 +401,9 @@ def modifying_integrator(y, f, A, b, order=2):
     for p in range(2,order+1):
         for t in trees.all_trees(p):
             B[t] = e(t) - subs(B, a, t) + B[t]
+
+    if return_coefficients:
+        return B
 
     series = np.zeros_like(f,dtype=object)
     for p in range(1,order+1):
