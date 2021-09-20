@@ -39,6 +39,8 @@ def _notebook_run(path):
     return nb, errors
 
 def run_tests():
+
+    # Run notebooks, unless explicitly told to skip (because some take a long time)
     for filename in os.listdir('./examples'):
         if (filename.split('.')[-1] == 'ipynb') and (filename.split('.')[0] not in skip_notebooks):
             print('running notebook: '+ filename)
@@ -46,11 +48,13 @@ def run_tests():
             if errors != []:
                 raise(Exception)
 
+    # Run doctests
     for module_name in ['bs',
                         'trees']:
         module = BSeries.__getattribute__(module_name)
         doctest.testmod(module)
 
+    # Run unit tests
     unittest.main(module='BSeries.test_trees',exit=False)
 
 if __name__ == '__main__':

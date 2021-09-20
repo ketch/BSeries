@@ -104,6 +104,7 @@ class RootedTree(object):
             self.root = None
             self.nodes = None
             self.name = 't0'
+            self._level_sequence = []
         elif initializer == []:
             self._nl = []
             self.root = Node(children=None,label=0)
@@ -384,6 +385,10 @@ class RootedTree(object):
             skeletons.append(skeleton)
 
         return forests, skeletons
+
+    def planar_forest_string(self):
+        "String representation required for producing the tree in latex with the planar forest package."
+        return str(t._nl).replace('[','b[').replace('[]','').replace(' ','')
 
 def splitting_subtree(tree, node_set):
     node_list = tree.copy().nodes

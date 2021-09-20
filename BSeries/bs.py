@@ -351,10 +351,23 @@ def modified_equation(y, f, A, b, order=2):
         for t in trees.all_trees(p):
             B[t] = a[t] - subs(B, e, t) + B[t]
 
-    series = np.zeros_like(f,dtype=object)
-    for p in range(1,order+1):
-        for t in trees.all_trees(p):
-            series += h**(p-1)/t.symmetry() * B[t]*elementary_differential(t,f,y,evaluate=True)
+    if f is None:
+        # Return a representation in terms of an undetermined RHS f.
+        # Ideally here we would use trees that are also sympy Symbols.
+        # But there are multiple inheritance issues that I haven't worked out.
+        F = sympy.Function('F')
+        series = 0
+        for p in range(1,order+1):
+            for t in trees.all_trees(p):
+                sym = sympy.Symbol(t.__repr__())
+                series += h**(p-1)/t.symmetry() * B[t]*F(sym)
+        return series
+
+    else:
+        series = np.zeros_like(f,dtype=object)
+        for p in range(1,order+1):
+            for t in trees.all_trees(p):
+                series += h**(p-1)/t.symmetry() * B[t]*elementary_differential(t,f,y,evaluate=True)
 
     return series
 
