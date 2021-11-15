@@ -58,6 +58,16 @@ def generate_nested_list(root,nodes):
         nl.append(generate_nested_list(child,nodes))
     return nl
 
+def generate_level_sequence(nested_list,root_rank=0):
+    """
+    Return a level sequence representation of a tree or subtree,
+    based on a nested list representation.
+    """
+    level_sequence = [root_rank]
+    for child in nested_list:
+        level_sequence += generate_level_sequence(child,root_rank=root_rank+1)
+    return level_sequence
+
 def descendants(node):
     """
     Recursively finds all the nodes that are descendants of node and returns
@@ -157,6 +167,9 @@ class RootedTree(object):
 
             self.nodes = descendants(self.root)
             self._nl = sorted_tree(self._nl)
+
+        if not hasattr(self,'_level_sequence'):
+            self._level_sequence = generate_level_sequence(self._nl)
 
     def __hash__(self):
         # Required so that Trees can be dict keys
@@ -419,11 +432,7 @@ def splitting_forest(tree, node_set):
     return forest
 
 
-def partition_forest(tree, edge_set):
-    """
-    The partition forest of the tree is the set of trees that result when the
-    edges marked by zero in edge_set are removed.
-    """
+def partition_forest_oo(tree, edge_set):
     import numpy as np
     # first make a copy
     node_list = tree.copy().nodes
@@ -440,6 +449,39 @@ def partition_forest(tree, edge_set):
             forest.append(RootedTree(tree_nodes))
             for tree_node in tree_nodes:
                 included[node_list.index(tree_node)] = 1
+    return forest
+
+def partition_forest(tree,edge_set):
+    """
+    The partition forest of the tree is the set of trees that result when the
+    edges marked by zero in edge_set are removed.
+
+    The ith value in edge_set corresponds to the edge connecting node i+1 in
+    the level sequence to its parent.
+    """
+    forest = []
+    ls = tree._level_sequence.copy()
+    edge_set = edge_set.copy()
+    while 0 in edge_set:
+        # Find next removed edge
+        subtree_root_index = edge_set.index(0)+1
+        # Detach corresponding subtree and add its partition forest
+        # subtree goes up to the next node that has the same (or lower) rank as its root
+        subtree_size = 1
+        while subtree_root_index+subtree_size<len(ls):
+            if ls[subtree_root_index+subtree_size]>ls[subtree_root_index]:
+                subtree_size += 1
+            else:
+                break
+        # Extract subtree
+        subtree = trees.RootedTree(ls[subtree_root_index:subtree_root_index+subtree_size])
+        subtree_edge_set = edge_set[subtree_root_index:subtree_root_index+subtree_size-1]
+        # Remove subtree from base tree
+        ls = ls[:subtree_root_index]+ls[subtree_root_index+subtree_size:]
+        edge_set = edge_set[:subtree_root_index-1]+edge_set[subtree_root_index+subtree_size-1:]
+        forest += partition_forest(subtree,subtree_edge_set)
+    #print(forest, ls)
+    forest += [trees.RootedTree(ls)]
     return forest
 
 def partition_skeleton(tree, edge_set):

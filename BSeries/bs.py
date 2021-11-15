@@ -25,7 +25,7 @@ class BSeries(object):
     def eval(self, order=2):
         import sympy
         from BSeries import trees
-        if self.coeffs:
+        if self.coeffs and not isinstance(F,sympy.FunctionClass):
             value = y
             for i in range(1,order+1):
                 value += h**i*sum([self.coeffs(t)*self.F(t)/t.symmetry() for t in trees.all_trees(i)])
@@ -62,6 +62,19 @@ class TreeMap(dict):
 def RK_BSeries(method):
     cfun = lambda tree: tree.density() * elementary_weight(tree, method.A, method.b)
     return BSeries(coeffs=cfun)
+
+def elementary_weight_string(tree):
+    for i, node in enumerate(tree.nodes):
+        node.label = indices[i]
+    factors = []
+    for node in tree.nodes:
+        if node.children:
+            for child in node.children:
+                factor = 'a_{{ {}{} }}'.format(node.label,child.label)
+                factors.append(factor)
+
+    if factors == []: return '1'
+    return ' '.join(factors)
 
 def generic_elementary_differential_string(tree):
     for i, node in enumerate(tree.nodes):
