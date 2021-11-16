@@ -99,10 +99,10 @@ class RootedTree(object):
         >>> from BSeries import trees
         >>> t = trees.RootedTree([[],[],[[]]])
         >>> t
-        t52
+        [0, 1, 1, 1, 2]
         >>> subtree = trees.RootedTree(trees.descendants(t.nodes[1]))
         >>> print(subtree)
-        t1
+        [0]
     """
     def __init__(self, initializer, name=None):
         import numpy as np
@@ -198,7 +198,7 @@ class RootedTree(object):
             >>> from BSeries import trees
             >>> t = trees.RootedTree([[],[[]]])
             >>> t.subtrees()
-            [t1, t2]
+            [[0], [0, 1]]
         """
         return [RootedTree(nl) for nl in self._nl]
 
@@ -432,7 +432,7 @@ def splitting_forest(tree, node_set):
     return forest
 
 
-def partition_forest_oo(tree, edge_set):
+def partition_forest(tree, edge_set):
     import numpy as np
     # first make a copy
     node_list = tree.copy().nodes
@@ -451,8 +451,10 @@ def partition_forest_oo(tree, edge_set):
                 included[node_list.index(tree_node)] = 1
     return forest
 
-def partition_forest(tree,edge_set):
+def partition_forest_stringbased(tree,edge_set):
     """
+    This version is not yet debugged.
+
     The partition forest of the tree is the set of trees that result when the
     edges marked by zero in edge_set are removed.
 
@@ -461,10 +463,10 @@ def partition_forest(tree,edge_set):
     """
     forest = []
     ls = tree._level_sequence.copy()
-    edge_set = edge_set.copy()
-    while 0 in edge_set:
+    remaining_edge_set = edge_set
+    while '0' in remaining_edge_set:
         # Find next removed edge
-        subtree_root_index = edge_set.index(0)+1
+        subtree_root_index = remaining_edge_set.index(0)+1
         # Detach corresponding subtree and add its partition forest
         # subtree goes up to the next node that has the same (or lower) rank as its root
         subtree_size = 1
@@ -475,10 +477,10 @@ def partition_forest(tree,edge_set):
                 break
         # Extract subtree
         subtree = trees.RootedTree(ls[subtree_root_index:subtree_root_index+subtree_size])
-        subtree_edge_set = edge_set[subtree_root_index:subtree_root_index+subtree_size-1]
+        subtree_edge_set = remaining_edge_set[subtree_root_index:subtree_root_index+subtree_size-1]
         # Remove subtree from base tree
         ls = ls[:subtree_root_index]+ls[subtree_root_index+subtree_size:]
-        edge_set = edge_set[:subtree_root_index-1]+edge_set[subtree_root_index+subtree_size-1:]
+        remaining_edge_set = remaining_edge_set[:subtree_root_index-1]+remaining_edge_set[subtree_root_index+subtree_size-1:]
         forest += partition_forest(subtree,subtree_edge_set)
     #print(forest, ls)
     forest += [trees.RootedTree(ls)]

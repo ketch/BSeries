@@ -11,7 +11,9 @@ import tempfile
 import sys
 import nbformat
 
-skip_notebooks = ['Modified equations','new_rooted_trees']
+skip_notebooks = ['Modified equations','new_rooted_trees',
+                  'Analysis of an explicit energy-conserving discretization',
+                  'Modified equations analysis']
 
 if sys.version_info >= (3,0):
     kernel = 'python3'
