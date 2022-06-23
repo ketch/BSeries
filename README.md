@@ -22,7 +22,7 @@ of nonlinear ODEs.  See these notebooks for some examples:
 - [Modified equations analysis examples](https://nbviewer.jupyter.org/gist/ketch/28d83ec4134e62f8bd8ec4b3b6cccc4a)
 - [Analysis of energy-conserving explicit discretization](https://nbviewer.jupyter.org/gist/ketch/03a99cdf8ef7d12860111f7a2dd58e23)
 
-The package also implements multiples representations of rooted trees.
+The package also implements multiple representations of rooted trees.
 
 ## Installation
 
