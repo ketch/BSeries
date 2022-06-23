@@ -1,4 +1,11 @@
+This package is now deprecated; please us [bseries.jl](https://github.com/ranocha/bseries.jl) instead.  This Python implementation
+was an initial prototype.  It contains relatively inefficient implementations and much
+less functionality than the Julia version; it is also less tested and likely to contain
+bugs.  I have left most of the old README intact below, but this package is not supported and
+I most likely won't respond to requests.
+
 # Bseries.py
+
 
 `bseries.py` is a package for manipulating and computing with B-series in Python.
 B-series are a tool for understanding and working with the structure of numerical
@@ -22,15 +29,3 @@ The package also implements multiples representations of rooted trees.
 ```
 pip install bseries
 ```
-
-## Contributions and feedback
-
-Contributions are very welcome; please open a pull request.  Bug reports
-and feature requests can also be made through the issue tracker.
-
-## Planned future work:
-
-- Documentation
-- More testing and continuous integration
-- Additional examples demonstrating package capabilities with respect to trees and elementary differentials
-- Extensions to work with other classes of methods (e.g. partitioned methods)
